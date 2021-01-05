@@ -36,12 +36,13 @@ class Venue(db.Model):
     __tablename__ = 'Venue'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
+    name = db.Column(db.String(120),unique = True, nullable = False )
+    # name must be unique
+    city = db.Column(db.String(120), nullable = False)
+    state = db.Column(db.String(120), nullable = False)
+    address = db.Column(db.String(120), nullable = False)
+    phone = db.Column(db.String(120), nullable = False)
+    image_link = db.Column(db.String(500), nullable = False)
     website = db.Column(db.String(120))
     facebook_link = db.Column(db.String(120))
     seeking_talent = db.Column(db.Boolean, default=False)
@@ -58,10 +59,11 @@ class Artist(db.Model):
     __tablename__ = 'Artist'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
+    name = db.Column(db.String, unique = True, nullable = False)
+    # name must be unique
+    city = db.Column(db.String(120), nullable = False)
+    state = db.Column(db.String(120), nullable = False)
+    phone = db.Column(db.String(120), nullable = False)
     image_link = db.Column(db.String(500))
     website = db.Column(db.String(120))
     facebook_link = db.Column(db.String(120))
@@ -99,57 +101,43 @@ app.jinja_env.filters['datetime'] = format_datetime
 #---------------------------------------------------------------------------#
 # Define show finder
 #---------------------------------------------------------------------------#
-def find_num_upcoming_show(venue_id):
-  shows = Show.query.filter_by(venue_id=venue_id).all()
-  num = 0
-  for show in shows:
-    value = show.date
-    date = dateutil.parser.parse(value).date()
-    if datetime.now().date() < date:
-      num = num + 1
-      #print('upcoming num ' + show.Venue.name  + date.strftime('%Y-%m-%d'))
-  return num
-
-def find_num_past_show(venue_id):
-  shows = Show.query.filter_by(venue_id=venue_id).all()
-  num = 0
-  for show in shows:
-    value = show.date
-    date = dateutil.parser.parse(value).date()
-    if datetime.now().date() > date:
-      num = num + 1
-      #print('past num ' + show.Venue.name  + date.strftime('%Y-%m-%d'))
-  return num
 
 def find_upcoming_shows_for_artist(artist_id):
     upcoming_shows_data =[]
-    shows = Show.query.filter_by(artist_id = artist_id)
-    for show in shows:
-      date = dateutil.parser.parse(show.date).date()
-      if datetime.now().date() < date:
-        data2={
-          "venue_id": show.Venue.id,
+    # Use Join to join Venue to Show
+    upcoming_shows1 = db.session.query(Show,Venue).\
+      join(Venue).\
+      filter(Show.artist_id == artist_id,\
+        Show.date > datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+      ).all()
+    for show in upcoming_shows1: 
+    # show is list. example (<Show 1> <Artist 1>)
+      data2={
+          "venue_id": show.Show.venue_id,
           "venue_name": show.Venue.name,
           "venue_image_link": show.Venue.image_link,
-          "start_time": show.date        
+          "start_time": show.Show.date        
         }
-        upcoming_shows_data.append(data2)
+      upcoming_shows_data.append(data2)
     return len(upcoming_shows_data), upcoming_shows_data
 
 def find_past_shows_for_artist(artist_id):
   past_shows_data =[]
-  shows = Show.query.filter_by(artist_id = artist_id)
-  for show in shows:
-    #value = show.date
-    date = dateutil.parser.parse(show.date).date()
-    if datetime.now().date() > date:
-      data2={
-        "venue_id": show.Venue.id,
+  # Use Join to join Venue to Show
+  past_shows1 = db.session.query(Show,Venue).\
+    join(Venue).\
+    filter(Show.artist_id == artist_id,\
+      Show.date < datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    ).all()
+  for show in past_shows1: 
+  # show is a tapple, example (<Show 1> <Artist 1>)
+    data2={
+        "venue_id": show.Show.venue_id,
         "venue_name": show.Venue.name,
         "venue_image_link": show.Venue.image_link,
-        "start_time": show.date        
+        "start_time": show.Show.date        
       }
-      past_shows_data.append(data2)
+    past_shows_data.append(data2)
   return len(past_shows_data), past_shows_data
 
 #----------------------------------------------------------------------------#
@@ -169,13 +157,13 @@ def venues():
   #       num_shows should be aggregated based on number of upcoming shows per venue.
   # find function upcoming shows of a venue
 
-  # find all cities
+  # find all cities at first
   cities = set()
   all_cities = Venue.query.all()
   for city in all_cities:
     cities.add(city.city)
-  # make venues data
   data=[]
+  # make venues data for each city.
   for city in cities:
     venues_query = Venue.query.filter_by(city=city).all()
     venues_data = []
@@ -183,7 +171,11 @@ def venues():
       venue_data ={
         'id': venue_in_city.id,
         'name':venue_in_city.name,
-        'num_upcoming_shows': find_num_upcoming_show(venue_in_city.id),
+        'num_upcoming_shows':  \
+          db.session.query(Show).\
+          filter(Show.venue_id == venue_in_city.id,\
+            Show.date > datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            ).count()
       }
       venues_data.append(venue_data)
     data_in_city = {
@@ -201,14 +193,16 @@ def search_venues():
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
   
   search_term = request.form.get('search_term')
-  search_results = Venue.query.filter(or_(Venue.name.ilike(f'%{search_term}%'),\
-    Venue.city.ilike(f'%{search_term}%'))).all()
+  search_results = Venue.query.filter(or_(Venue.name.ilike(f'%{search_term}%'))).all()
   data=[]
   for venue in search_results:
     data1 ={
       "id": venue.id,
       "name": venue.name,
-      "num_upcoming_shows": find_num_upcoming_show(venue.id),
+      "num_upcoming_shows": \
+        db.session.query(Show).\
+        filter(Show.venue_id == venue.id,\
+        Show.date > datetime.now().strftime('%Y-%m-%d %H:%M:%S')).count()
     }
     data.append(data1)
   response={
@@ -223,36 +217,38 @@ def show_venue(venue_id):
   # TODO: replace with real venue data from the venues table, using venue_id
   
   def find_past_shows(venue_id):
-    past_shows_data =[]
-    shows = Show.query.filter_by(venue_id = venue_id)
-    for show in shows:
-      #value = show.date
-      date = dateutil.parser.parse(show.date).date()
-      if datetime.now().date() > date:
-        data2={
-          "artist_id": show.Artist.id,
-          "artist_name": show.Artist.name,
-          "artist_image_link": show.Artist.image_link,
-          "start_time": show.date        
-        }
-        past_shows_data.append(data2)
-    return past_shows_data
+    past_shows_data1 =[]    
+    past_shows = db.session.query(Show,Artist).join(Artist).\
+      filter(Show.venue_id==venue_id, \
+        Show.date < datetime.now().strftime('%Y-%m-%d %H:%M:%S')).all()
+    for show in past_shows:
+      artist = show[1]
+      data3={
+        "artist_id": artist.id,
+        "artist_name": artist.name,
+        "artist_image_link": artist.image_link,
+        "start_time": show[0].date        
+      }
+      past_shows_data1.append(data3)
+
+    return past_shows_data1
 
   def find_upcoming_shows(venue_id):
-    upcoming_shows_data =[]
-    shows = Show.query.filter_by(venue_id = venue_id)
-    for show in shows:
-      date = dateutil.parser.parse(show.date).date()
-      if datetime.now().date() < date:
-        data2={
-          "artist_id": show.Artist.id,
-          "artist_name": show.Artist.name,
-          "artist_image_link": show.Artist.image_link,
-          "start_time": show.date        
-        }
-        upcoming_shows_data.append(data2)
-    return upcoming_shows_data
+    upcoming_shows_data1 =[]    
+    upcoming_shows = db.session.query(Show,Artist).join(Artist).\
+      filter(Show.venue_id==venue_id, \
+        Show.date > datetime.now().strftime('%Y-%m-%d %H:%M:%S')).all()
+    for show in upcoming_shows:
+      artist = show[1]
+      data3={
+        "artist_id": artist.id,
+        "artist_name": artist.name,
+        "artist_image_link": artist.image_link,
+        "start_time": show[0].date        
+      }
+      upcoming_shows_data1.append(data3)
 
+    return upcoming_shows_data1
   data =[]
   for venue in Venue.query.all():
     data1={
@@ -270,8 +266,14 @@ def show_venue(venue_id):
       "image_link": venue.image_link,
       "past_shows": find_past_shows(venue.id),
       "upcoming_shows": find_upcoming_shows(venue.id),
-      "past_shows_count": find_num_past_show(venue.id),
-      "upcoming_shows_count": find_num_upcoming_show(venue.id),
+      "past_shows_count": \
+        db.session.query(Show).\
+        filter(Show.venue_id == venue.id,\
+        Show.date < datetime.now().strftime('%Y-%m-%d %H:%M:%S')).count(),
+      "upcoming_shows_count": \
+        db.session.query(Show).\
+        filter(Show.venue_id == venue.id,\
+        Show.date > datetime.now().strftime('%Y-%m-%d %H:%M:%S')).count(),
       }
     data.append(data1)
 
