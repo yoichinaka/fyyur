@@ -15,7 +15,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import or_
 import logging
 from logging import Formatter, FileHandler
-#from flask_wtf import Form
+from flask_wtf import Form
 from forms import *
 from flask_migrate import Migrate
 #----------------------------------------------------------------------------#
@@ -323,21 +323,18 @@ def create_venue_submission():
   form = VenueForm(request.form)
   error = False
   try:
-    # insert_venue_data = Venue(
-    #   name = form.name.data,
-    #   city = form.city.data,
-    #   state = form.state.data,
-    #   address = form.address.data,
-    #   phone = form.phone.data,
-    #   image_link = form.image_link.data,
-    #   website = form.website.data,
-    #   facebook_link =form.facebook_link.data,
-    #   genres = form.genres.data
-    # )
-    # db.session.add(insert_venue_data)
-    venue = Venue()
-    form.populate_obj(venue)
-    db.session.add(venue)
+    insert_venue_data = Venue(
+      name = form.name.data,
+      city = form.city.data,
+      state = form.state.data,
+      address = form.address.data,
+      phone = form.phone.data,
+      image_link = form.image_link.data,
+      website = form.website.data,
+      facebook_link =form.facebook_link.data,
+      genres = form.genres.data
+    )
+    db.session.add(insert_venue_data)
     db.session.commit()
   except:
     error = True

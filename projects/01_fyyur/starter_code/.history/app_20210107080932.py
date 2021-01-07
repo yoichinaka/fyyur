@@ -6,10 +6,14 @@ import json
 import dateutil.parser, datetime
 import babel
 import sys
-#from flask import Flask, render_template, request, Response, flash, redirect, url_for
 from flask import (
-  Flask, render_template, request, 
-  Response, flash, redirect, url_for)
+  Flask,
+  render_template, 
+  request, 
+  Response, 
+  flash, 
+  redirect, 
+  url_for)
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy 
 from sqlalchemy import or_
@@ -17,83 +21,25 @@ import logging
 from logging import Formatter, FileHandler
 #from flask_wtf import Form
 from forms import *
-from flask_migrate import Migrate
+from flask_migrate import Migrate 
+from models import db, Venue, Artist,Show
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
-from models import db, Venue, Artist, Show    
-
 
 app = Flask(__name__)
-app.config.from_object('config')
 moment = Moment(app)
-db.init_app(app)
-migrate = Migrate(app, db)
-
-# app = Flask(__name__)
-# moment = Moment(app)
-# app.config.from_object('config')
-# db = SQLAlchemy(app)
+app.config.from_object('config')
+#db = SQLAlchemy(app)
+db = db.init_app(app)
 
 # TODO: connect to a local postgresql database
 
-# migrate = Migrate(app, db)
+migrate = Migrate(app, db)
 
 #----------------------------------------------------------------------------#
-# Models.
+# Models. >> Move to model.py
 #----------------------------------------------------------------------------#
-
-# class Venue(db.Model):
-#     __tablename__ = 'Venue'
-
-#     id = db.Column(db.Integer, primary_key=True)
-#     name = db.Column(db.String(120),unique = True, nullable = False )
-#     # name must be unique
-#     city = db.Column(db.String(120), nullable = False)
-#     state = db.Column(db.String(120), nullable = False)
-#     address = db.Column(db.String(120), nullable = False)
-#     phone = db.Column(db.String(120), nullable = False)
-#     image_link = db.Column(db.String(500), nullable = False)
-#     website = db.Column(db.String(120))
-#     facebook_link = db.Column(db.String(120))
-#     seeking_talent = db.Column(db.Boolean, default=False)
-#     seeking_description = db.Column(db.String(120))
-#     genres = db.Column(db.ARRAY(db.String(120)))
-#     show = db.relationship('Show', backref='Venue')
-
-#     def __repr__(self):
-#       return f'<Venue {self.id} {self.name}>'
-
-#     # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-# class Artist(db.Model):
-#     __tablename__ = 'Artist'
-
-#     id = db.Column(db.Integer, primary_key=True)
-#     name = db.Column(db.String, unique = True, nullable = False)
-#     # name must be unique
-#     city = db.Column(db.String(120), nullable = False)
-#     state = db.Column(db.String(120), nullable = False)
-#     phone = db.Column(db.String(120), nullable = False)
-#     image_link = db.Column(db.String(500))
-#     website = db.Column(db.String(120))
-#     facebook_link = db.Column(db.String(120))
-#     seeking_venue = db.Column(db.Boolean, default = False)
-#     seeking_description = db.Column(db.String(120))
-#     genres = db.Column(db.ARRAY(db.String(120)))
-#     show = db.relationship('Show', backref='Artist')
-
-#     # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-# # TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
-# class Show(db.Model):
-#     __tablename__ = 'Show'
-
-#     id = db.Column(db.Integer, primary_key=True)
-#     artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=True)
-#     venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=True)
-#     date = db.Column(db.String(120))
-
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -169,50 +115,33 @@ def venues():
   # find function upcoming shows of a venue
 
   # find all cities at first
-  # cities = set()
-  # all_cities = Venue.query.all()
-  # for city in all_cities:
-  #   cities.add(city.city)
-  # data=[]
-  # # make venues data for each city.
-  # for city in cities:
-  #   venues_query = Venue.query.filter_by(city=city).all()
-  #   venues_data = []
-  #   for venue_in_city in venues_query:
-  #     venue_data ={
-  #       'id': venue_in_city.id,
-  #       'name':venue_in_city.name,
-  #       'num_upcoming_shows':  \
-  #         db.session.query(Show).\
-  #         filter(Show.venue_id == venue_in_city.id,\
-  #           Show.date > datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-  #           ).count()
-  #     }
-  #     venues_data.append(venue_data)
-  #   data_in_city = {
-  #     'city': city,
-  #     'state': venues_query[0].state,
-  #     'venues': venues_data
-  #   }
-  #   data.append(data_in_city)
-
-  locals = []
-  venues = Venue.query.all()
-  places = Venue.query.distinct(Venue.city, Venue.state).all()
-  for place in places:
-      locals.append({
-          'city': place.city,
-          'state': place.state,
-          'venues': [{
-              'id': venue.id,
-              'name': venue.name,
-          } for venue in venues if
-              venue.city == place.city and venue.state == place.state]
-      })
-  return render_template('pages/venues.html', areas=locals)
-
-
-  return render_template('pages/venues.html', areas=locals);
+  cities = set()
+  all_cities = Venue.query.all()
+  for city in all_cities:
+    cities.add(city.city)
+  data=[]
+  # make venues data for each city.
+  for city in cities:
+    venues_query = Venue.query.filter_by(city=city).all()
+    venues_data = []
+    for venue_in_city in venues_query:
+      venue_data ={
+        'id': venue_in_city.id,
+        'name':venue_in_city.name,
+        'num_upcoming_shows':  \
+          db.session.query(Show).\
+          filter(Show.venue_id == venue_in_city.id,\
+            Show.date > datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            ).count()
+      }
+      venues_data.append(venue_data)
+    data_in_city = {
+      'city': city,
+      'state': venues_query[0].state,
+      'venues': venues_data
+    }
+    data.append(data_in_city)
+  return render_template('pages/venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
@@ -323,18 +252,6 @@ def create_venue_submission():
   form = VenueForm(request.form)
   error = False
   try:
-    # insert_venue_data = Venue(
-    #   name = form.name.data,
-    #   city = form.city.data,
-    #   state = form.state.data,
-    #   address = form.address.data,
-    #   phone = form.phone.data,
-    #   image_link = form.image_link.data,
-    #   website = form.website.data,
-    #   facebook_link =form.facebook_link.data,
-    #   genres = form.genres.data
-    # )
-    # db.session.add(insert_venue_data)
     venue = Venue()
     form.populate_obj(venue)
     db.session.add(venue)
