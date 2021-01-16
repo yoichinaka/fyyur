@@ -12,7 +12,7 @@ from flask import (
   Response, flash, redirect, url_for)
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy 
-from sqlalchemy import or_
+from sqlalchemy import or_ # can be deleted
 import logging
 from logging import Formatter, FileHandler
 #from flask_wtf import Form
